@@ -1,0 +1,499 @@
+openapi: 3.0.3
+info:
+  title: MARIOT MMS API (Gateway Part)
+  version: '1.1'
+  description: >-
+    The MARIOT MMS API is an interface to be used for transmission and reception of messages via the MARIOT System. The interface consist of two parts: a Gateway part to be used by MCP services for transmission of unicast and broadcast messages via the MARIOT System and a Service part to be used by MCP services to receive messages from the MARIOT System. This specification describes the gateway part and is based on the <a href="https://maritimeconnectivity.net/docs/MMS_Specification_0.8.3.pdf">MMS concept</a>. 
+  contact:
+    name: Sternula
+    url: 'https://www.sternula.com'
+servers:
+  - url: https:// TBD
+tags:
+  - name: Message Transmission
+    description: Transmission of unicast and broadcast messages
+  - name: Public Key
+    description: Public keys for encryption and authentication
+paths:
+  /unicast:
+    post:
+      tags:
+        - Message Transmission
+      summary: Send MMS message to VDES terminal
+      description: 'An MCP service can request transmission of a message to a specific VDES terminal.'
+      parameters:
+        - name: srcMRN
+          in: header
+          required: true
+          description: MRN of sender
+          schema:
+            type: string
+          example: 'Urn:mrn:mcp:service:dk-dmi:weather_on_route'
+        - name: dstMRN
+          in: header
+          required: true
+          description: MRN of VDES terminal to receive message
+          schema:
+            type: string
+          example: 'urn:mrn:imo:imo-number:9743368'
+        - name: expiryTime
+          in: header
+          required: false
+          description: >-
+            If specified, the message shall be delivered to destination before the specified UTC time.
+          schema:
+            type: string
+            format: date-time
+          examples:
+            oneId:
+              summary: 'November 5, 2020, 13:15:30 UTC'
+              value: '2020-11-05T13:15:30Z'
+        - name: messageId 
+          in: header
+          required: false
+          description: >-
+            Shall only be specified if capacity has been reserved to send a message. Shall be set to the messageId value returned during reservation. 
+          schema:
+            type: integer
+            format: int64
+          example: '286458442'   
+        - name: destLatitude 
+          in: header
+          required: false
+          description: >-
+            As the destination VDES terminal may be moving, specifying the destination of the VDES terminal increase the probability of successful delivery of message. The desitination is specified as latitude and longitude values in decimal degrees.
+          schema:
+            type: number
+            format: double
+          example: '55.02'  
+        - name: destLongitude 
+          in: header
+          required: false
+          schema:
+            type: number
+            format: double
+          example: '9.54'  
+      requestBody:
+        description: >-
+          Message to be send to destination. The MARIOT System supports messages with length up to at least 100 kbytes.
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              example: Any sequence of octets
+      responses:
+        '200':
+          description: Successful response. Transmission of the message has been accepted by the MARIOT system. The message will be forwarded to a satellite which will deliver the message. The messageId value returned shall be used for identification when requesting information or cancellation of message transmission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageId'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /broadcast:
+    post:
+      tags:
+        - Message Transmission
+      summary: Broadcast MMS message
+      description: 'An MCP service can request broadcast of a message in an area. No destination is specified. The message will be broadcasted in an area agreed with the MARIOT system operator. When a service requests a new message to be broadcasted the transmission of previous broadcast message is cancelled as soon as possible.'
+      parameters:
+        - name: srcMRN
+          in: header
+          required: true
+          description: MRN of sender
+          schema:
+            type: string
+          example: 'Urn:mrn:mcp:service:dk-dmi:weather_on_route'
+        
+        - name: expiryTime
+          in: header
+          required: false
+          description: >-
+            If specified, the message shall not be broadcasted after the specified UTC time.
+          schema:
+            type: string
+            format: date-time
+          examples:
+            oneId:
+              summary: 'November 5, 2020, 13:15:30 UTC'
+              value: '2020-11-05T13:15:30Z'
+      requestBody:
+        description: Message to be broadcasted. The MARIOT System supports messages with length up to at least 100 kbytes.
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              example: Any sequence of octets
+      responses:
+        '200':
+          description: Successful response. Broadcasting of the message has been accepted by the MARIOT system. The message will be forwarded to a satellite which will broadcast the message. The messageId value returned shall be used for identification when requesting status or cancellation of message transmission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageId'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /cancel:
+    delete:
+      tags:
+        - Message Transmission
+      summary: Cancel message transmission
+      description: 'If an MCP service has requested transmission of a message or reserved capacity for transmision of a message and later regrets, it is possible to cancel the transmission of the message. A unicast message can only be cancelled if it has not been uploaded to a satellite for transmission. Broadcasting will be stopped as soon as posible but may require satellite(s) to visit a ground station.'
+      parameters:
+        - name: messageId
+          in: header
+          required: true
+          description: Id of unicast/broadcast message not to be transmitted/transmitted again 
+          schema:
+            type: integer
+            format: int64
+          example: '956747485'  
+        
+      responses:
+        '200':
+          description: Successful response
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'  
+  /unicastestimate:
+    get:
+      tags:
+        - Message Transmission
+      summary: Calculate delivery time estimate for unicast message
+      description: 'If an MCP service needs to send weather data to a VDES terminal it can request the gateway to estimate when a message can be delivered to a specific VDES terminal. The Gateway will calculate when a message can be sent to the VDES terminal on the VDE-SAT link and the latest point in time where the message shall be delivered to the Gateway. The MCP service can then calculate weather data just in time before it shall be delivered to the Gateway and there by deliver up to date weather data to the VDES terminal.'
+      parameters:
+        - name: srcMRN
+          in: header
+          required: true
+          description: MRN of sender
+          schema:
+            type: string
+          example: 'Urn:mrn:mcp:service:dk-dmi:weather_on_route'
+        - name: dstMRN
+          in: header
+          required: true
+          description: MRN of VDES terminal to receive message
+          schema:
+            type: string
+          example: 'urn:mrn:imo:imo-number:9743368'
+        - name: msgSize
+          in: header
+          required: true
+          description: >-
+            Size of the message to be sent in bytes.
+          schema:
+            type: integer
+            format: int64
+          example: '2048'
+        - name: destLatitude 
+          in: header
+          required: false
+          description: As the destination VDES terminal may be moving, specifying the destination of the VDES terminal increase the probability of successful delivery of message. The desitination is specified as latitude and longitude values in decimal degrees.
+          schema:
+            type: number
+            format: double
+          example: '55.02'  
+        - name: destLongitude 
+          in: header
+          required: false
+          schema:
+            type: number
+            format: double
+          example: '9.55'  
+      responses:
+        '200':
+          description: Successful response. The vdesatTxTime parameter indicates when the message can be sent to the VDES terminal on the VDE-SAT link. The deliveryTime parameter of the response indicates the latest point in time where the message shall be delivered to the Gateway in order for the MARIOT system be be able to deliver the message at the planned time. 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryEstimate'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /reservation:
+    post:
+      tags:
+        - Message Transmission
+      summary: Reserve capacity for transmission of message for a VDES terminal
+      description: 'An MCP service can request gateway to reserve capacity for transmission of a message for a specific VDES terminal. The gateway will calculate when the message can be sent to the VDES terminal on the VDE-SAT link and the latest point in time where the message shall be delivered to the Gateway.'
+      parameters:
+        - name: srcMRN
+          in: header
+          required: true
+          description: MRN of sender
+          schema:
+            type: string
+          example: 'Urn:mrn:mcp:service:dk-dmi:weather_on_route'
+        - name: dstMRN
+          in: header
+          required: true
+          description: MRN of VDES terminal to receive message
+          schema:
+            type: string
+          example: 'urn:mrn:imo:imo-number:9743368'
+        - name: msgSize
+          in: header
+          required: true
+          description: >-
+            Size of the message to be sent in bytes.
+          schema:
+            type: integer
+            format: int64
+          example: '2048'
+        - name: destLatitude 
+          in: header
+          required: false
+          description: As the destination VDES terminal may be moving, specifying the destination of the VDES terminal increase the probability of successful delivery of message. The desitination is specified as latitude and longitude values in decimal degrees.
+          schema:
+            type: number
+            format: double
+          example: '55.02'  
+        - name: destLongitude 
+          in: header
+          required: false
+          schema:
+            type: number
+            format: double
+          example: '9.55'  
+      responses:
+        '200':
+          description: Successful response. The vdesatTxTime parameter indicates when the message can be sent to the VDES terminal on the VDE-SAT link. The deliveryTime parameter of the response indicates the latest point in time where the message shall be delivered to the Gateway in order for the MARIOT system be be able to deliver the message at the planned time. The message id shall be saved and included when sending a request for transmission of the message. 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationInfo'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /list:
+    get:
+      tags:
+        - Message Transmission
+      summary: Retrieve list of message ids
+      description: 'Get a list of message ids for message transmissions requested wihtin the last X hours.'
+      parameters:
+        - name: duration 
+          in: header
+          required: false
+          description: Specifies how many hours the list shall cover.
+          schema:
+            type: integer
+            default: 24
+      responses:
+        '200':
+          description: Successful response. 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TxList'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /info:
+    get:
+      tags:
+        - Message Transmission
+      summary: Retrieve information about message transmission
+      description: 'If an MCP service has requested transmission of a message or reserved capacity for transmission of a message the service can get information about transmission of the message.'
+      parameters:
+        - name: messageId 
+          in: header
+          required: true
+          description: Id of unicast/broadcast message.
+          schema:
+            type: integer
+            format: int64
+          example: '286458442'   
+        - name: includeData 
+          in: header
+          required: false
+          description: Id of unicast/broadcast message.
+          schema:
+            type: boolean
+            default: false   
+      responses:
+        '200':
+          description: Successful response. The response includes a status field indicating the state of the transmisison of the message. If status is ‘received_at_gateway’, ‘uploaded_to_satellite’, or ‘capacity_reserved’ deliveryTime specifies when the message is expected to be delivered. If status is ‘delivered’, deliveryTime specifies when the message was delivered. If status is ‘failed’, failureReason indicates the reason for failure. Note, status will not switch from ‘uploaded_to_satellite’ to ‘delivered’ until information about delivery has been sent from satellite to gateway during a ground station visit. If a reservation was made for transmission of message the ReservationTime field specifies when the reservation was requested. The RxTime specifies when the Gateway received the message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TxInfo'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /publickey:
+    get:
+      tags:
+        - Public Key
+      summary: Retrieve public key of VDES terminal
+      description: 'If an MCP service needs to transmit an encrypted message to a VDES terminal, or verify a signature from a VDES terminal it can request the Gateway for the public key for the VDES terminal.'
+      parameters:
+        - name: dstMRN
+          in: header
+          required: true
+          description: MRN of VDES terminal
+          schema:
+            type: string
+          example: 'urn:mrn:imo:imo-number:9743368'
+        
+      responses:
+        '200':
+          description: Successful response. The response includes the public key of the VDES terminal and a timestamp specifying how long time the key is valid. Both the public kay and the expiry time are extracted from the MCP X.509 certificate for the VDES terminal. To avoid using a public key after revocation the MCP service must regularly retrieve the public key of a VDES terminal. The public key shall be base64 encoded.   
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicKey'
+        '204':
+          description: Public key unknown. The Gateway does not know the public key for the VDES terminal. A request for the key will be send to the VDES terminal. The parameter availableAt specifies when the key is expected to be available. The MCP service can then request the key again later. It will still be possible to send un-encrypted message to the VDES terminal while waiting for the public key. If the Gateway can not retrive the key for a VDES terminal the availableAt field will be set to "Unknown"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityTime'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    Error:
+      type: object
+      description: To be returned on error. Includes error code and optionally a description of the error.
+      properties:
+        errorCause:
+          type: string
+          enum: [unspecified,
+                 unknown_message_id,
+                 position_of_destination_unknown,
+                 message_too_long,
+                 authentication_failure,
+                 unknown_destination_id,
+                 too_late_to_cancel,
+                 missing_required_parameter]
+        errorMessage:
+          type: string
+      required:
+        - errorCause
+    MessageId:
+      type: object
+      properties:
+        messageId:
+          type: integer
+          format: int64
+      required:
+        - messageId
+    AvailabilityTime:
+      type: object
+      properties:
+        availableAt:
+          type: string
+          format: date-time
+      required:
+        - availableAt
+    DeliveryEstimate:
+      type: object
+      properties:
+        vdesatTxTime:
+          type: string
+          format: date-time
+        deliveryTime:
+          type: string
+          format: date-time
+      required:
+        - vdesatTxTime
+        - deliveryTime
+    ReservationInfo:
+      type: object
+      properties:
+        vdesatTxTime:
+          type: string
+          format: date-time
+        deliveryTime:
+          type: string
+          format: date-time
+        messageId :
+          type: integer
+          format: int64
+      required:
+        - vdesatTxTime
+        - deliveryTime
+    TxList:
+      type: object
+      properties:
+        messageIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+      required:
+        - baselines
+    TxInfo:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [received_at_gateway, uploaded_to_satellite, delivered, capacity_reserved, failed, pending_retranmission]
+        rxTime:
+          type: string
+          format: date-time
+        reservationTime:
+          type: string
+          format: date-time
+        deliveryTime:
+          type: string
+          format: date-time
+        failureReason:
+          type: string
+          enum: [unspecified, expired]
+        data:
+          type: string
+          format: binary
+          example: Any sequence of octets
+        nofTx:
+          type: integer
+      required:
+        - status
+    PublicKey:
+      type: object
+      properties:
+        publicKey :
+          type: string
+          format: byte
+        expiryDate  :
+          type: string
+          format: date-time
+      required:
+        - publicKey
+        - expiryDate
+security:
+  - BasicAuth: []
