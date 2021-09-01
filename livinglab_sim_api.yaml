@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: Sternula Sandbox Sim API
+  version: 1.0.0
+  description: >-
+    Interface to be used to configure the LivingLab Simulation.
+    Copyright Sternula Aps, Denmark, 2019, 2020, 2021
+    May be used to work with the <a href="https://www.sternula.com/index.php/product-vdes-testplatform/">Sternula Sandbox Product</a>.
+  termsOfService: 'https://www.sternula.com/index.php/general-terms-and-conditions/'
+  contact:
+    name: Sternula
+    url: 'https://www.sternula.com'
+paths:
+  /ship:
+    post:
+      tags:
+        - Simulation
+      summary: Set parameters and location of the ship
+      description: ''
+      parameters:
+        - name: MMSI
+          in: header
+          required: true
+          description: MMSI of ship
+          schema:
+            type: integer
+          example: 123456789
+        - name: errorRate
+          in: header
+          required: false
+          description: >-
+            Can be set as a percentage of dropped packages or as LOW, NORMAL, and HIGH to simulate an antenna that changes its orientation due to weather conditions
+          schema:
+            type: string
+            enum: [low, 
+                 normal,
+                 high]
+        - name: latitude 
+          in: header
+          required: false
+          description: >-
+            Latitude of the ship
+          schema:
+            type: number
+          example: '55.02'  
+        - name: longitude 
+          in: header
+          required: false
+          description: >-
+            Longitude of the ship
+          schema:
+            type: number
+          example: '9.54'  
+      requestBody:
+        description: >-
+          
+        content:
+          application/*:
+            schema:
+              type: string
+              format: Octets
+              example: 
+      responses:
+        '200':
+          description: The ship has been placed or moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /constellation:
+    post:
+      tags:
+        - Simulation
+      summary: Set the size of the constellation based on the operating year
+      description: ''
+      parameters:
+        - name: year
+          in: header
+          required: true
+          description: Operating year
+          schema:
+            type: integer
+          example: 2023
+      requestBody:
+        description: ''
+        content:
+          application/*:
+            schema:
+              type: string
+              format: ''
+              example: 
+      responses:
+        '200':
+          description: The operating year has been changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /environment:
+    post:
+      tags:
+        - Simulation
+      summary: Change settings for the simulation environment
+      description: ''
+      parameters:
+        - name: realtimeFactor
+          in: header
+          required: true
+          description: 'The speed of the simulation. 1 means that the simulation will run in realtime, 2 means that 2 seconds in the simulation will be 1 second in realtime and so forth. 0 means that the simulation will run as fast as possible'
+          schema:
+            type: integer
+            format: int64
+          example: '1'  
+        
+      responses:
+        '200':
+          description: Successful response
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'  
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    Error:
+      type: object
+      description: To be returned on error. Includes error code and optionally a description of the error.
+      properties:
+        errorCause:
+          type: string
+          enum: [unspecified, 
+                 invalid_year,
+                 invalid_integer,
+                 authentication_failure,
+                 invalid_destination]
+        errorMessage:
+          type: string
+      required:
+        - errorCause
+    success:
+      type: object
+      properties:
+        packetId:
+          type: integer
+          format: int64
+      required:
+        - packetId
+
+security:
+  - BasicAuth: []
+servers:
+  # Added by API Auto Mocking Plugin
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/sternula_m/livinglab_sim_api/1.0.0
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/sternula/MMS_GW/1.0.1
