@@ -259,7 +259,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /register/{MMSI}:
+  /callback/{MMSI}:
     post:
       tags:
         - Packet Reception
@@ -321,7 +321,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
                 
-  /register/{RegistrationId}:
+  /callback/{RegistrationId}:
     delete:
       tags:
         - Packet Reception
