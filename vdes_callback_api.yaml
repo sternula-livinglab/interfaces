@@ -70,6 +70,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  
+  /state:              
+    post:
+      tags:
+        - Message State
+      summary: Update the state of packets that have been sent
+      description: 'Used by Gateway to deliver packets received from VDES terminals to a destination service'
+      operationId: sendVDESPacket
+      parameters:
+        - name: packetId
+          in: header
+          required: true
+          description: The packet for which the state has changed
+          schema:
+            type: integer
+          example: 123456789
+        - name: state
+          in: header
+          required: true
+          description: State of packetId
+          schema:
+            type: string
+          example: "packet_delivered"
+
+      requestBody:
+        description: 'The request body is empty'
+        content:
+          application/*:
+            schema:
+              type: string
+              format: string
+              example: 
+      responses:
+        '200':
+          description: Successful response. Note that the response will not be forwarded to the sender of the message. If an acknowledgement is needed the MCP service must sent this in a message to the VDES terminal.
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     BasicAuth:
