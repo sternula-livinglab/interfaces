@@ -8,16 +8,16 @@ info:
     name: Sternula
     url: 'https://www.sternula.com'
 tags:
-  - name: Message Reception
+  - name: Packet Reception
     description: Forward packets received from VDES terminals
 paths:
-  /message:
+  /packet:
     post:
       tags:
-        - Message Reception
+        - Packet Reception
       summary: Forward packets received from VDES terminals to the service
       description: 'Used by Gateway to deliver packets received from VDES terminals to a destination service'
-      operationId: sendVDESPacket
+      operationId: receiveVDESPacket
       parameters:
         - name: srcMMSI
           in: header
@@ -74,10 +74,10 @@ paths:
   /state:              
     post:
       tags:
-        - Message State
+        - Packet State
       summary: Update the state of packets that have been sent
       description: 'Used by Gateway to deliver packets received from VDES terminals to a destination service'
-      operationId: sendVDESPacket
+      operationId: receiveVDESPacketState
       parameters:
         - name: packetId
           in: header
