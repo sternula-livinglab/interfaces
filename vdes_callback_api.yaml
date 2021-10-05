@@ -1,22 +1,23 @@
 openapi: 3.0.3
 info:
-  title: Sternula VDES GW API
-  version: 1.0.0
+  title: VDES Callback API
+  version: '1.0'
   description: >-
-    Interface to be used by VDES services for transmission of unicast and broadcast packets via the VDE-SAT System. The interface is inspired by the <a href="https://maritimeconnectivity.net/docs/MMS_Specification_0.8.3.pdf">MMS concept</a> but transports VDES packets as opposed to MMS messages. 
-    Copyright Sternula Aps, Denmark, 2019, 2020, 2021
-    May be used to work with the <a href="https://www.sternula.com/index.php/product-vdes-testplatform/">Sternula Sandbox Product</a>.
-  termsOfService: 'https://www.sternula.com/index.php/general-terms-and-conditions/'
+    The VDES API is an interface to be used for transmission and reception of messages via the MARIOT System. The interface consist of two parts: a Gateway part to be used by VDES services for transmission of unicast and broadcast packets via the system and a callback part that VDES services has to implement such that the gateway can relay packets from terminals/ships. This specification describes the callback part.
   contact:
     name: Sternula
     url: 'https://www.sternula.com'
+tags:
+  - name: Packet Reception
+    description: Forward packets received from VDES terminals
 paths:
-  /packet/unicast:
+  /packet:
     post:
       tags:
-        - Packet Transmission
-      summary: Send VDES packet to one ship
-      description: 'An VDES service can request transmission of a packet to a specific ship.'
+        - Packet Reception
+      summary: Forward packets received from VDES terminals to the service
+      description: 'Used by Gateway to deliver packets received from VDES terminals to a destination service'
+      operationId: receiveVDESPacket
       parameters:
         - name: srcMMSI
           in: header
@@ -28,230 +29,41 @@ paths:
         - name: dstMMSI
           in: header
           required: true
-          description: MMSI of ship to receive packet
+          description: MMSI of receiver
           schema:
             type: integer
           example: 987654321
-        - name: expiryTime
+        - name: rxTime
           in: header
-          required: false
+          required: true
           description: >-
-            If specified, the packet shall be delivered to destination before the specified UTC time.
+            Time when packet was received by the gateway
           schema:
             type: string
             format: date-time
           examples:
             oneId:
-              summary: 'November 5, 2020, 13:15:30 UTC'
-              value: '2020-11-05T13:15:30Z'
-        - name: packetId 
+              summary: 'November 5, 1994, 13:15:30 UTC'
+              value: '1994-11-05T13:15:30Z'
+        - name: packetId
           in: header
-          required: false
+          required: true
           description: >-
-            Shall only be specified if capacity has been reserved to send a packet. Shall be set to the value returned during reservation. 
+            Id to be used for identification of a packet for debugging and billing purposes
           schema:
-            type: integer
-            format: int64
-          example: '286458442'   
-        - name: destLatitude 
-          in: header
-          required: false
-          description: >-
-            As the destination ship may be moving, specifying the destination of the ship increase the probability of successful delivery of packet. The desitination is specified as latitude and longitude values in decimal degrees.
-          schema:
-            type: number
-          example: '55.02'  
-        - name: destLongitude 
-          in: header
-          required: false
-          schema:
-            type: number
-          example: '9.54'  
+            $ref: '#/components/schemas/PacketId'
+          example: '12345678'
       requestBody:
-        description: >-
-          The packet that has to sent to the dstMMSI. The packet cannot exceed 498 bytes.
+        description: 'The request body contains the packet received from the VDES terminal'
         content:
           application/octet-stream:
             schema:
-              type: object
-              format: Octets
-              example: 
+              type: string
+              format: binary
+              example: Any sequence of octets
       responses:
         '200':
-          description: Successful response. Transmission of the packet has been accepted by the VDES network. The packet will be forwarded to a satellite which will deliver the packet.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/packetId'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /packet/broadcast:
-    post:
-      tags:
-        - Packet Transmission
-      summary: Broadcast VDES packet
-      description: ''
-      parameters:
-        - name: srcMMSI
-          in: header
-          required: true
-          description: MMSI of sender
-          schema:
-            type: integer
-          example: 123456789
-      requestBody:
-        description: The packet that has to sent to the dstMMSI. The unencoded packet cannot exceed 498 bytes.
-        content:
-          application/octet-stream:
-            schema:
-              type: object
-              format: Octets
-              example: 
-      responses:
-        '200':
-          description: Successful response. Broadcasting of the packet has been accepted by the VDES network. The packet will be forwarded to a satellite which will broadcast the packet.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/packetId'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /packet/{packetId}:
-    delete:
-      tags:
-        - Packet Transmission
-      summary: Cancel packet transmission
-      description: 'If an VDES service has requested transmission of a packet and later regrets, it is possible to cancel the transmission of the packet. A unicast packet can only be cancelled if it has not been uploaded to a satellite for transmission.'
-      parameters:
-        - name: packetId
-          in: path
-          required: true
-          description: Id of unicast/broadcast packet not to be transmitted/transmitted again 
-          schema:
-            type: integer
-            format: int64
-          example: '956747485'  
-        
-      responses:
-        '200':
-          description: Successful response
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'  
-
-    get:
-      tags:
-        - Packet Transmission
-      summary: Retrieve status for packet transmission
-      description: 'If VDES service has requested transmission of a packet the service can get information about transmission of the packet.'
-      parameters:
-        - name: packetId
-          in: path
-          required: true
-          description: Id of unicast/broadcast packet.
-          schema:
-            type: integer
-            format: int64
-          example: '286458442'   
-        
-      responses:
-        '200':
-          description: Successful response. If status is ‘received_at_gateway’ or ‘uploaded_to_satellite’ deliveryTime specifies when the packet is expected to be delivered. If status is ‘delivered’, deliveryTime specifies when the packet was delivered. If status is ‘failed’, failureReason indicates the reason for failure 
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusInfo'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /packet/unicastestimate:
-    get:
-      tags:
-        - Packet Transmission
-      summary: Calculate delivery time estimate for unicast packet
-      description: 'If an VDES service needs to send data to a ship it can request the gateway to estimate when a packet can be delivered to a specific ship. The Gateway will calculate when a packet can be sent to the ship on the VDE-SAT link and the latest point in time where the packet shall be delivered to the Gateway. '
-      parameters:
-        - name: dstMMSI
-          in: header
-          required: true
-          description: MMSI of ship to receive packet
-          schema:
-            type: integer
-          example: 1122334455
-        - name: destLatitude 
-          in: header
-          required: false
-          description: As the destination ship may be moving, specifying the destination of the ship increase the probability of successful delivery of the packet. The destination is specified as latitude and longitude values in decimal degrees.
-          schema:
-            type: number
-          example: '55.02'  
-        - name: destLongitude 
-          in: header
-          required: false
-          schema:
-            type: number
-          example: '9.55'  
-      responses:
-        '200':
-          description: Successful response. The deliveryTime parameter of the response indicates the latest point in time where the packet shall be delivered to the Gateway. The vdesatTxTime parameter indicates when the packet is sent to the ship on the VDE-SAT link
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeliveryEstimate'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /packet/reservation:
-    post:
-      tags:
-        - Packet Transmission
-      summary: Reserve capacity for transmission of packet for a ship
-      description: 'A VDES service can request the gateway to reserve capacity for a packet for a specific ship. The gateway will calculate when the packet can be sent to the ship on the VDE-SAT link and the latest point in time where the packet shall be delivered to the Gateway.'
-      parameters:
-        - name: dstMRN
-          in: header
-          required: true
-          description: MMSI of ship to receive packet
-          schema:
-            type: integer
-          example: 123456789
-        - name: destLatitude 
-          in: header
-          required: false
-          description: As the destination ship may be moving, specifying the destination of the ship increase the probability of successful delivery of the packet. The destination is specified as latitude and longitude values in decimal degrees.
-          schema:
-            type: number
-          example: '55.02'  
-        - name: destLongitude 
-          in: header
-          required: false
-          schema:
-            type: number
-          example: '9.55'  
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReservationInfo'
+          description: Successful response. Note that the response will not be forwarded to the sender of the message. If an acknowledgement is needed the MCP service must sent this in a message to the VDES terminal.
         default:
           description: Unexpected error
           content:
@@ -259,90 +71,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /callback:
+  /state:              
     post:
       tags:
-        - Packet Reception
-      summary: Register where the VDES Callback API implementation can be located for packets with this destination MMSI
-      description: 'For a service to receive packets from terminals and ships, it needs to register where its implementation of the VDES Callback is located'
+        - Packet State
+      summary: Update the state of packets that have been sent
+      description: 'Used by Gateway to deliver packets received from VDES terminals to a destination service'
+      operationId: receiveVDESPacketState
       parameters:
-        - name: MMSI 
+        - name: packetId
           in: header
           required: true
-          description: MMSI of the service. Packets with this destination MMSI will be relayed .
-          schema:
-            type: string
-            format: string
-          example: 'CallbackUser_prod'
-        - name: Username 
-          in: header
-          required: true
-          description: Username for basic auth of the callback endpoint /message.
-          schema:
-            type: string
-            format: string
-          example: 'CallbackUser_prod'
-        - name: Password 
-          in: header
-          required: true
-          description: Password for basic auth of the callback endpoint /message.
-          schema:
-            type: string
-            format: string
-          example: 'SecurePassword1234'
-        - name: URL
-          in: header
-          required: true
-          description: URL location for the callback API
-          schema:
-            type: string
-            format: string
-          example: 'example.com:8080/vdescallback'
-        
-      responses:
-        '200':
-          description: Successful response. Returns a unique registration ID 
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusInfo'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-                
-  /callback/{RegistrationId}:
-    delete:
-      tags:
-        - Packet Reception
-      summary: Register where the VDES Callback API implementation can be located
-      description: 'For a service to receive packets from terminals and ships, it needs to register where its implementation of the VDES Callback is located'
-      parameters:
-        - name: RegistrationId 
-          in: path
-          required: true
-          description: Registration ID of the callback
+          description: The packet for which the state has changed
           schema:
             type: integer
-            format: integer
-          example: 9988776655
-        
+          example: 123456789
+        - name: state
+          in: header
+          required: true
+          description: State of packetId
+          schema:
+            type: string
+          example: "packet_delivered"
+
+      requestBody:
+        description: 'The request body is empty'
+        content:
+          application/*:
+            schema:
+              type: string
+              format: string
+              example: 
       responses:
         '200':
-          description: Registration was deleted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusInfo'
+          description: Successful response. Note that the response will not be forwarded to the sender of the message. If an acknowledgement is needed the MCP service must sent this in a message to the VDES terminal.
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
 components:
   securitySchemes:
     BasicAuth:
@@ -355,88 +123,13 @@ components:
       properties:
         errorCause:
           type: string
-          enum: [unspecified, 
-                 position_of_destination_unknown,
-                 packet_too_long,
-                 authentication_failure,
-                 unknown_destination,
-                 too_late_to_cancel]
+          enum: [unspecified, authentication_failure, invalid_service]
         errorMessage:
           type: string
       required:
         - errorCause
-    packetId:
-      type: object
-      properties:
-        packetId:
-          type: integer
-          format: int64
-      required:
-        - packetId
-    AvailabilityTime:
-      type: object
-      properties:
-        availablAt:
-          type: string
-          format: date-time
-      required:
-        - availablAt
-    DeliveryEstimate:
-      type: object
-      properties:
-        vdesatTxTime:
-          type: string
-          format: date-time
-        deliveryTime:
-          type: string
-          format: date-time
-      required:
-        - vdesatTxTime
-        - deliveryTime
-    ReservationInfo:
-      type: object
-      properties:
-        vdesatTxTime:
-          type: string
-          format: date-time
-        deliveryTime:
-          type: string
-          format: date-time
-        packetId :
-          type: integer
-          format: int64
-      required:
-        - vdesatTxTime
-        - deliveryTime
-    StatusInfo:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [received_at_gateway, uploaded_to_satellite, delivered, failed]
-        deliveryTime:
-          type: string
-          format: date-time
-        failureReason:
-          type: string
-          enum: [unspecified, expired]
-      required:
-        - status
-    PublicKey:
-      type: object
-      properties:
-        publicKey :
-          type: string
-          format: binary
-        expiryDate  :
-          type: string
-          format: date-time
-      required:
-        - publicKey
-        - expiryDate
+    PacketId:
+      type: integer
+      format: int64
 security:
   - BasicAuth: []
-servers:
-  # Added by API Auto Mocking Plugin
-  - description: SwaggerHub API Auto Mocking
-    url: https://virtserver.swaggerhub.com/sternula/MMS_GW/1.0.1
