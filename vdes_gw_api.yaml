@@ -259,7 +259,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /callback/{MMSI}:
+  /callback:
     post:
       tags:
         - Packet Reception
@@ -267,14 +267,14 @@ paths:
       description: 'For a service to receive packets from terminals and ships, it needs to register where its implementation of the VDES Callback is located'
       parameters:
         - name: MMSI 
-          in: path
+          in: header
           required: true
           description: MMSI of the service. Packets with this destination MMSI will be relayed .
           schema:
             type: string
             format: string
           example: 'CallbackUser_prod'
-        - name: CallbackUsername 
+        - name: Username 
           in: header
           required: true
           description: Username for basic auth of the callback endpoint /message.
@@ -282,7 +282,7 @@ paths:
             type: string
             format: string
           example: 'CallbackUser_prod'
-        - name: CallbackPassword 
+        - name: Password 
           in: header
           required: true
           description: Password for basic auth of the callback endpoint /message.
@@ -290,22 +290,14 @@ paths:
             type: string
             format: string
           example: 'SecurePassword1234'
-        - name: CallbackIP
+        - name: URL
           in: header
           required: true
-          description: IP address for the callback API
+          description: URL location for the callback API
           schema:
             type: string
             format: string
-          example: '10.20.0.1'
-        - name: CallbackPort
-          in: header
-          required: true
-          description: Password for basic auth of the callback endpoint /message.
-          schema:
-            type: integer
-            format: integer
-          example: 8080  
+          example: 'example.com:8080/vdescallback'
         
       responses:
         '200':
