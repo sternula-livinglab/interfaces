@@ -32,6 +32,18 @@ paths:
           schema:
             type: integer
           example: 987654321
+        - name: sequenceNumber
+          in: header
+          required: true
+          description: >-
+            The sequence number of the packet from 0 to 999
+          schema:
+            type: string
+            format: string
+          examples:
+            oneId:
+              summary: '23'
+              value: '23'
         - name: expiryTime
           in: header
           required: false
