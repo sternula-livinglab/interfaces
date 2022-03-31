@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: MMS Callback API
+  version: '1.0'
+  description: >-
+    The MMS API is an interface to be used for transmission and reception of messages via the MARIOT System. The interface consist of two parts: a Gateway part to be used by MMS services for transmission of unicast and broadcast messages via the system and a callback part that MMS services has to implement such that the gateway can relay packets from terminals/ships. This specification describes the callback part.
+  contact:
+    name: Sternula
+    url: 'https://www.sternula.com'
+tags:
+  - name: Message Reception
+    description: Forward messages received from VDES terminals
+paths:
+  /message:
+    post:
+      tags:
+        - Message Reception
+      summary: Forward messages received from VDES terminals to the service
+      description: 'Used by the Gateway to deliver MMS messages received from VDES terminals to a destination service'
+      operationId: receiveVDESPacket
+      parameters:
+        - name: srcMRN
+          in: header
+          required: true
+          description: MRN of sender
+          schema:
+            type: integer
+          example: 
+        - name: dstMRN
+          in: header
+          required: true
+          description: MRN of receiver
+          schema:
+            type: integer
+          example: 
+        - name: rxTime
+          in: header
+          required: true
+          description: >-
+            Time when packet was received by the gateway
+          schema:
+            type: string
+            format: date-time
+          examples:
+            oneId:
+              summary: 'November 5, 1994, 13:15:30 UTC'
+              value: '1994-11-05T13:15:30Z'
+        - name: packetId
+          in: header
+          required: true
+          description: >-
+            Id to be used for identification of a packet for debugging and billing purposes
+          schema:
+            $ref: '#/components/schemas/PacketId'
+          example: '12345678'
+      requestBody:
+        description: 'The request body contains the packet received from the VDES terminal'
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              example: Any sequence of octets
+      responses:
+        '200':
+          description: Successful response. Note that the response will not be forwarded to the sender of the message. If an acknowledgement is needed the MCP service must sent this in a message to the VDES terminal.
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    Error:
+      type: object
+      description: To be returned on error. Includes error code and optionally a description of the error.
+      properties:
+        errorCause:
+          type: string
+          enum: [unspecified, authentication_failure, invalid_service]
+        errorMessage:
+          type: string
+      required:
+        - errorCause
+    PacketId:
+      type: integer
+      format: int64
+security:
+  - BasicAuth: []
